@@ -1,0 +1,97 @@
+erDiagram
+  contacts {
+    uuid id PK
+    text full_name
+    text display_name
+    text designation
+    text company
+    text relationship_to_user
+    text source
+    uuid merged_into_contact_id FK
+    timestamp deleted_at
+  }
+
+  contact_emails {
+    uuid id PK
+    uuid contact_id FK
+    text email
+    text normalized_email
+    text label
+    boolean is_primary
+  }
+
+  contact_phones {
+    uuid id PK
+    uuid contact_id FK
+    text phone_number
+    text normalized_phone
+    text label
+    boolean is_primary
+  }
+
+  contact_websites {
+    uuid id PK
+    uuid contact_id FK
+    text url
+    text normalized_url
+    text label
+    boolean is_primary
+  }
+
+  contact_addresses {
+    uuid id PK
+    uuid contact_id FK
+    text formatted_address
+    text address_line1
+    text city
+    text state
+    text postal_code
+    text country
+    text label
+    boolean is_primary
+  }
+
+  contact_relationships {
+    uuid id PK
+    uuid from_contact_id FK
+    uuid to_contact_id FK
+    text relationship_type
+    text inverse_relationship_type
+    text relationship_category
+    text notes
+  }
+
+  contact_groups {
+    uuid id PK
+    text name
+    text group_type
+    text description
+  }
+
+  contact_group_members {
+    uuid id PK
+    uuid group_id FK
+    uuid contact_id FK
+    text role
+  }
+
+  extraction_attempts {
+    uuid id PK
+    text source_type
+    text status
+    text raw_text
+    jsonb parsed_draft
+    jsonb confidence
+    uuid created_contact_id FK
+  }
+
+  contacts ||--o{ contact_emails : has
+  contacts ||--o{ contact_phones : has
+  contacts ||--o{ contact_websites : has
+  contacts ||--o{ contact_addresses : has
+  contacts ||--o{ contact_relationships : source
+  contacts ||--o{ contact_relationships : target
+  contacts ||--o{ contact_group_members : belongs_to
+  contact_groups ||--o{ contact_group_members : contains
+  contacts ||--o{ extraction_attempts : created_from
+  contacts ||--o| contacts : merged_into

@@ -1,0 +1,35 @@
+flowchart TD
+  Start["User opens Add Contact"] --> Mode{"Choose input mode"}
+
+  Mode --> Card["Scan or upload business card"]
+  Card --> CardRead["Read card text locally"]
+  CardRead --> CardParse["Map card details to contact fields"]
+
+  Mode --> Voice["Record voice or type note"]
+  Voice --> VoiceText["Turn speech into text locally"]
+  VoiceText --> VoiceParse["Map spoken details to contact fields"]
+
+  CardParse --> Review["Review editable contact form"]
+  VoiceParse --> Review
+  Review --> QuickFill["Optional field-by-field voice fill"]
+  QuickFill --> Review
+
+  Review --> Save["Save contact"]
+  Save --> Duplicate{"Possible duplicate?"}
+
+  Duplicate -->|"Use existing"| Existing["Open existing contact"]
+  Duplicate -->|"Merge"| Merge["Merge new details into saved contact"]
+  Duplicate -->|"Create new"| Create["Create new contact"]
+  Duplicate -->|"No match"| Create
+
+  Merge --> Relate["Optional relationship suggestions"]
+  Create --> Relate
+  Existing --> Contacts["Contacts list and detail view"]
+
+  Relate -->|"Link people"| GraphData["Save relationships and groups"]
+  Relate -->|"Skip"| Contacts
+  GraphData --> Contacts
+
+  Contacts --> Export["Export one or many contacts as VCF"]
+  Contacts --> Delete["Soft delete contact when needed"]
+  Contacts --> Graph["Relationship graph with group filters"]

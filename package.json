@@ -1,0 +1,36 @@
+{
+  "name": "bhumio-assignment",
+  "private": true,
+  "version": "0.0.1",
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev:infra": "docker compose up -d",
+    "dev:infra:down": "docker compose down",
+    "dev:infra:logs": "docker compose logs -f",
+    "dev:api": "npm --workspace apps/api run start:dev",
+    "dev:web": "npm --workspace apps/web run dev",
+    "db:generate": "npm --workspace apps/api run db:generate",
+    "db:migrate": "npm --workspace apps/api run db:migrate",
+    "db:seed": "node scripts/seed-sample-data.js",
+    "db:seed:if-empty": "node scripts/seed-sample-data.js --if-empty",
+    "build": "npm --workspace apps/api run build && npm --workspace apps/web run build",
+    "test": "npm run test:all",
+    "test:all": "npm run test:unit && npm run test:e2e && npm run build && npm run test:ocr",
+    "test:unit": "npm --workspace apps/api run test -- --runInBand",
+    "test:e2e": "npm --workspace apps/api run test:e2e",
+    "test:ocr": "npm --workspace apps/api run build && node scripts/evaluate-business-card-ocr.js --engine=paddle",
+    "test:ocr:tesseract": "npm --workspace apps/api run build && node scripts/evaluate-business-card-ocr.js --engine=tesseract",
+    "test:ocr:parse": "npm --workspace apps/api run build && node scripts/evaluate-business-card-ocr.js --use-report-ocr",
+    "test:ocr:fresh": "npm --workspace apps/api run build && node scripts/evaluate-business-card-ocr.js --no-cache",
+    "test:ocr:paddle": "npm --workspace apps/api run build && node scripts/evaluate-business-card-ocr.js --engine=paddle",
+    "test:ocr:paddle:sample": "npm --workspace apps/api run build && node scripts/evaluate-business-card-ocr.js --engine=paddle --limit=5 --paddle-batch-size=5",
+    "test:ocr:paddle:fresh": "npm --workspace apps/api run build && node scripts/evaluate-business-card-ocr.js --engine=paddle --no-cache",
+    "test:ocr:paddle:strict": "npm --workspace apps/api run build && node scripts/evaluate-business-card-ocr.js --engine=paddle --strict --min=0.70",
+    "test:ocr:opencv": "python scripts/preprocess-business-cards-opencv.py && npm --workspace apps/api run build && node scripts/evaluate-business-card-ocr.js --image-dir=datasets/business-cards/opencv-scans --no-cache",
+    "test:ocr:strict": "npm --workspace apps/api run build && node scripts/evaluate-business-card-ocr.js --engine=paddle --strict --min=0.70",
+    "lint": "npm --workspace apps/api run lint && npm --workspace apps/web run lint"
+  }
+}

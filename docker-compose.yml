@@ -1,0 +1,82 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: bhumio-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bhumio_contacts}
+      POSTGRES_USER: ${POSTGRES_USER:-bhumio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bhumio_dev_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-bhumio} -d ${POSTGRES_DB:-bhumio_contacts}"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: bhumio-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-bhumio}:${POSTGRES_PASSWORD:-bhumio_dev_password}@postgres:5432/${POSTGRES_DB:-bhumio_contacts}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:5173,http://127.0.0.1:5173}
+      PORT: 3000
+      SEED_SAMPLE_DATA: ${SEED_SAMPLE_DATA:-true}
+      LOCAL_STT_PYTHON: python3
+      LOCAL_STT_MODEL: ${LOCAL_STT_MODEL:-tiny.en}
+      LOCAL_STT_DEVICE: ${LOCAL_STT_DEVICE:-cpu}
+      LOCAL_STT_COMPUTE_TYPE: ${LOCAL_STT_COMPUTE_TYPE:-int8}
+      LOCAL_STT_TIMEOUT_MS: ${LOCAL_STT_TIMEOUT_MS:-120000}
+      BUSINESS_CARD_OCR_ENGINE: ${BUSINESS_CARD_OCR_ENGINE:-paddle}
+      BUSINESS_CARD_OCR_PYTHON: ${BUSINESS_CARD_OCR_PYTHON:-python3}
+      BUSINESS_CARD_PADDLE_SIDE_LEN: ${BUSINESS_CARD_PADDLE_SIDE_LEN:-960}
+      BUSINESS_CARD_OCR_TIMEOUT_MS: ${BUSINESS_CARD_OCR_TIMEOUT_MS:-180000}
+      UPLOAD_STORAGE_MODE: ${UPLOAD_STORAGE_MODE:-delete_after_processing}
+      UPLOAD_TEMP_TTL_HOURS: ${UPLOAD_TEMP_TTL_HOURS:-24}
+      UPLOAD_STORAGE_DIR: /app/uploads
+    ports:
+      - "${API_PORT:-3000}:3000"
+    volumes:
+      - api_uploads:/app/uploads
+      - stt_cache:/root/.cache
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_URL: /api
+    container_name: bhumio-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-5173}:80"
+
+  adminer:
+    image: adminer:5
+    container_name: bhumio-adminer
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+volumes:
+  postgres_data:
+  api_uploads:
+  stt_cache:
