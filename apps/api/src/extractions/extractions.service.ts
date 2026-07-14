@@ -103,6 +103,13 @@ export class ExtractionsService {
     return '.webm';
   }
 
+  private async resolveOpenCvScriptPath(): Promise<string> {
+    const scriptPath = join(process.cwd(), 'scripts', 'preprocess-business-cards-opencv.py');
+
+    return scriptPath;
+  }
+
+
   private async resolveLocalSttScriptPath() {
     const candidates = [
       join(process.cwd(), 'scripts', 'local_stt_faster_whisper.py'),
@@ -140,8 +147,7 @@ export class ExtractionsService {
         return await this.recognizeBusinessCardWithPaddle(file);
       } catch (error) {
         this.logger.warn(
-          `PaddleOCR failed; falling back to Tesseract: ${
-            error instanceof Error ? error.message : String(error)
+          `PaddleOCR failed; falling back to Tesseract: ${error instanceof Error ? error.message : String(error)
           }`,
         );
       }
@@ -157,6 +163,8 @@ export class ExtractionsService {
       tmpdir(),
       `bhumio-card-${Date.now()}-${Math.round(Math.random() * 1_000_000)}${extension}`,
     );
+    // Path for the processed/warped image
+    const warpedImagePath = imagePath.replace(/(\.[\w\d_-]+)$/i, '-warped$1');
     const outputPath = join(
       tmpdir(),
       `bhumio-card-ocr-${Date.now()}-${Math.round(Math.random() * 1_000_000)}.json`,
@@ -165,6 +173,21 @@ export class ExtractionsService {
     await fs.writeFile(imagePath, file.buffer);
 
     try {
+      // --- OpenCV Preprocessing Step ---
+      try {
+        const openCvScript = join(process.cwd(), 'scripts', 'preprocess-business-cards-opencv.py');
+        const python = process.env.BUSINESS_CARD_OCR_PYTHON ?? 'python3';
+        await execFileAsync(python, [openCvScript, '--input', imagePath, '--output', warpedImagePath]);
+      } catch (e) {
+        this.logger.warn('OpenCV preprocessing failed, proceeding with raw image');
+      }
+
+      // Determine which image to use
+      const finalImagePath = (await fs.stat(warpedImagePath).catch(() => null))
+        ? warpedImagePath
+        : imagePath;
+      // ---------------------------------
+
       const scriptPath = await this.resolvePaddleOcrScriptPath();
       const python =
         process.env.BUSINESS_CARD_OCR_PYTHON ??
@@ -173,7 +196,7 @@ export class ExtractionsService {
       const sideLen = process.env.BUSINESS_CARD_PADDLE_SIDE_LEN ?? '960';
       const { stdout, stderr } = await execFileAsync(
         python,
-        [scriptPath, '--output', outputPath, '--side-len', sideLen, imagePath],
+        [scriptPath, '--output', outputPath, '--side-len', sideLen, finalImagePath],
         {
           cwd: process.cwd(),
           timeout: Number(process.env.BUSINESS_CARD_OCR_TIMEOUT_MS ?? '180000'),
@@ -198,7 +221,7 @@ export class ExtractionsService {
         string,
         { rawText?: string; lines?: Array<{ text?: string }> }
       >;
-      const result = payload[basename(imagePath)];
+      const result = payload[basename(finalImagePath)];
       const lineText =
         result?.lines
           ?.map((line) => line.text?.trim())
@@ -214,6 +237,7 @@ export class ExtractionsService {
     } finally {
       await Promise.all([
         fs.rm(imagePath, { force: true }),
+        fs.rm(warpedImagePath, { force: true }),
         fs.rm(outputPath, { force: true }),
       ]);
     }
@@ -225,8 +249,8 @@ export class ExtractionsService {
       variants.map(async (variant) => {
         const options = variant.pageSegmentationMode
           ? ({
-              tessedit_pageseg_mode: variant.pageSegmentationMode,
-            } as unknown as Parameters<typeof recognize>[2])
+            tessedit_pageseg_mode: variant.pageSegmentationMode,
+          } as unknown as Parameters<typeof recognize>[2])
           : undefined;
         const result = await recognize(variant.buffer, 'eng', options);
         return `--- ${variant.name} ---\n${result.data.text}`;

@@ -1,12 +1,28 @@
 from pathlib import Path
 import cv2
 import numpy as np
+import argparse
+import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
 INPUT_DIR = ROOT / "datasets" / "business-cards" / "images"
 OUTPUT_DIR = ROOT / "datasets" / "business-cards" / "opencv-scans"
 
+def process_image(input_path, output_path):
+    image = cv2.imread(str(input_path))
+    if image is None:
+        return False
+    
+    points = detect_card(image)
+    if points is not None:
+        scanned = four_point_transform(image, points.astype("float32"))
+    else:
+        scanned = image
+        
+    enhanced = enhance_for_ocr(scanned)
+    cv2.imwrite(str(output_path), enhanced)
+    return True
 
 def order_points(points):
     rect = np.zeros((4, 2), dtype="float32")
@@ -109,4 +125,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", required=True, help="Path to input image")
+    parser.add_argument("--output", required=True, help="Path to save processed image")
+    args = parser.parse_args()
+
+    if process_image(args.input, args.output):
+        sys.exit(0)
+    else:
+        sys.exit(1)

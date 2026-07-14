@@ -21,3 +21,5 @@ datasets/business-cards/previews/
 datasets/business-cards/ocr-evaluation-report*.json
 
 *-submission.zip
+
+.venv/
